@@ -1,23 +1,26 @@
+"""
+normalize_csv.py
+This script reads csv content from stdin, transforms that content, and prints the
+resulting csv back to stdout.
+The script assumes the content on stdin will follow the format of sample.csv
+In the case of unicode decoding issues the in timestamp, zipcode, fooduration, or
+barduration the row will be dropped as these values cannot be reliably parsed.
+"""
 
-# read in csv file on stdin, write out csv file on stdout
-# input: UTF-8
-# output: UTF-8
+
 import sys
 from csv import reader, writer
 from pytz import timezone
 from datetime import datetime, timedelta
 
-# assume the order of the columns is fixed, so we can assume the first column
-# has timestamp, the second address, etc
-# also assume that the first line is the header
-
 def parse_timestamp(timestamp_in):
     """
     convert timestamp_in to US/Eastern time and ISO-8601 format
-    returns: parsed timestamp string or None if a date cannot be converted because of a unicode issue.
-    returned timestamp will reflect daylight savings
-    param: timestamp_in: string timestamp of m/dd/yy hh:mm:ss pm/am format representing
+    :param timestamp_in: string timestamp of m/dd/yy hh:mm:ss pm/am format representing
     a date in US/Pacific timezone.
+    returns: string timestamp in US/Eastern time and ISO-8601 format or None if a date
+    cannot be converted, either because of a malformed date or a unicode issue.
+    returned timestamp will reflect daylight savings
     """
     if u'\ufffd' in timestamp_in:
         return None
@@ -36,36 +39,46 @@ def parse_timestamp(timestamp_in):
 def parse_duration(duration_in):
     """
     convert duration_in to floating point seconds format
-    returns: string representing converted duration_in or none if unicode replacement
-    character is present
-    param: duration_in: string time druation in HH:MM:SS.MS format
+    :param duration_in: string time duration in HH:MM:SS.MS format
+    returns: string representing duration_in in floating point seconds isoformat
+    or none if unicode replacement character is present or if the duration is malformed
     """
     if u'\ufffd' in duration_in :
         return None
     if duration_in == '' :
         return ''
 
-    return duration_in
-    # check to see if there is a python function to convert to fp seconds
-    # a millisecond is a floating point second... hm..
-    # time_split = duration_in.split('.')
-    # fps = int(time_split[1])/1000
-    # return time_split[0] + str(fps)
+    try:
+        (hour, min, sec) = duration_in.split(":")
+    except:
+        return None
+
+    return timedelta(hours=int(hour), minutes=int(min), seconds=float(sec)).total_seconds()
+
 
 def parse_zipcode(zipcode_in):
     """
     convert zipcode_in to 5 digit zip
+    :param zipcode_in: string representation of a zipcode with 1 to 5 digits
     returns: string zipcode 0 padded to create 5 digit zip or none if unicode
     replacement character is found
     """
-    if len(zipcode_in) == 5:
+    if u'\ufffd' in zipcode_in :
+        return None
+
+    if len(zipcode_in) == 5 or zipcode_in == '':
         return zipcode_in
     else:
         zero_pad = '0' * (5-len(zipcode_in))
         return zero_pad + zipcode_in
 
 def sum_durations(duration_one, duration_two):
-    # convert hhhh:mm:ss.ss format to be able to add. note that its a duration, not a datetime
+    """
+    Add the values in duration_one and duration_two. If either value is empty or None
+    return the other value as the sum. If both values are None or empty return empty
+    :param duration_one, duration_two: string containing decimal number
+    returns: string representation of floating point sum or empty
+    """
     if (duration_one == None or duration_one == '') and \
     (duration_two == None or duration_two == '') :
         return ''
@@ -74,12 +87,8 @@ def sum_durations(duration_one, duration_two):
     if duration_two == None or duration_two == '' :
         return duration_one
 
-    sum = timedelta()
-    durations = [duration_one, duration_two]
-    for entry in durations:
-        (hour, min, sec) = entry.split(":")
-        sum += timedelta(hours=int(hour), minutes=int(min), seconds=float(sec))
-    return str(sum)
+    return str(float(duration_one) + float(duration_two))
+
 
 csv_writer = writer(sys.stdout)
 header = None
