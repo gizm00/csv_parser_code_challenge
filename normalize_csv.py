@@ -3,15 +3,25 @@ normalize_csv.py
 This script reads csv content from stdin, transforms that content, and prints the
 resulting csv back to stdout.
 The script assumes the content on stdin will follow the format of sample.csv
-In the case of unicode decoding issues the in timestamp, zipcode, fooduration, or
-barduration the row will be dropped as these values cannot be reliably parsed.
+In the case of unicode decoding issues the in timestamp, zipcode, fooduration,
+barduration, name, or address the row will be dropped and an error message printed
+to stderr
 """
-
-
 import sys
 from csv import reader, writer
 from pytz import timezone
 from datetime import datetime, timedelta
+
+def validate_unicode(string_input, field_name):
+    """
+    if unicode replacement character is found in string_input return False
+    otherwise return true
+    """
+    if u'\ufffd' in string_input:
+        print("unicode issue in", field_name, file=sys.stderr)
+        return False
+    else:
+        return True
 
 def parse_timestamp(timestamp_in):
     """
@@ -22,7 +32,7 @@ def parse_timestamp(timestamp_in):
     cannot be converted, either because of a malformed date or a unicode issue.
     returned timestamp will reflect daylight savings
     """
-    if u'\ufffd' in timestamp_in:
+    if not validate_unicode(timestamp_in, "Timestamp"):
         return None
     if timestamp_in == '':
         return ''
@@ -36,15 +46,16 @@ def parse_timestamp(timestamp_in):
     timestamp_td_eastern = timestamp_dt.astimezone(timezone('US/Eastern'))
     return timestamp_td_eastern.isoformat(' ')
 
-def parse_duration(duration_in):
+def parse_duration(duration_in, duration_name):
     """
     convert duration_in to floating point seconds format
     :param duration_in: string time duration in HH:MM:SS.MS format
+    :param duration_name: string identifier for duration_in
     returns: string representing duration_in in floating point seconds isoformat
     or none if unicode replacement character is present or if the duration is malformed
     """
-    if u'\ufffd' in duration_in :
-        return None
+    if not validate_unicode(duration_in, duration_name):
+            return None
     if duration_in == '' :
         return ''
 
@@ -63,8 +74,8 @@ def parse_zipcode(zipcode_in):
     returns: string zipcode 0 padded to create 5 digit zip or none if unicode
     replacement character is found
     """
-    if u'\ufffd' in zipcode_in :
-        return None
+    if not validate_unicode(zipcode_in, 'zipcode'):
+            return None
 
     if len(zipcode_in) == 5 or zipcode_in == '':
         return zipcode_in
@@ -101,12 +112,17 @@ for line in sys.stdin.buffer:
         fields = list(reader([line_data]))[0]
         if len(fields) == 8:
             timestamp = parse_timestamp(fields[0])
-            address = fields[1]
             zip = parse_zipcode(fields[2])
-            fullname = fields[3].upper()
-            fooduration = parse_duration(fields[4])
-            barduration = parse_duration(fields[5])
+            fooduration = parse_duration(fields[4], 'fooduration')
+            barduration = parse_duration(fields[5], 'barduration')
             totalduration = sum_durations(fooduration,barduration)
             notes = fields[7]
-            if (timestamp != None and zip != None and fooduration != None and barduration != None):
+            address = fields[1]
+            if validate_unicode(fields[3], "fullname"):
+                fullname = fields[3].upper()
+            else:
+                fullname = None
+
+            if (timestamp != None and zip != None and fooduration != None and barduration != None \
+            and validate_unicode(address, "address") and fullname != None):
                 csv_writer.writerow([timestamp, address, zip, fullname, fooduration, barduration, totalduration, notes])
