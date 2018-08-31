@@ -6,6 +6,9 @@ The script assumes the content on stdin will follow the format of sample.csv
 In the case of unicode decoding issues the in timestamp, zipcode, fooduration,
 barduration, name, or address the row will be dropped and an error message printed
 to stderr
+
+usage:
+python normalize_csv.py < sample.csv
 """
 import sys
 from csv import reader, writer
