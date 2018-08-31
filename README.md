@@ -11,3 +11,8 @@ using python 3.6, install packages from requirements.txt
 
 usage:  
 $ python normalize_csv.py < sample.csv
+
+Some improvements would include:
+* wraping parse code in  \__main__
+* unit tests
+* exception handling
